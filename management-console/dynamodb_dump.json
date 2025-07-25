@@ -1,0 +1,173 @@
+[
+  {
+    "updated_at": "2025-03-17T13:05:42.769748",
+    "assigned_nodes": [
+      "A800_node002"
+    ],
+    "created_at": "2025-03-17T13:03:05.057964",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "2267934e28ec42b9bce49d125df7c05a"
+    ],
+    "job_timestamp": "20250317-130303",
+    "submittd_container_inst_ids": [
+      "adb5b3187b22471c8994179b11b1e158"
+    ],
+    "job_id": "torch-job-health-20250317-130303-88cf6ac7-precheck",
+    "retry": "0",
+    "job_status": "PRE_CHECKING_FAIL"
+  },
+  {
+    "updated_at": "2025-03-17T12:37:19.303971",
+    "assigned_nodes": [
+      "A800_node002"
+    ],
+    "created_at": "2025-03-17T12:36:14.481451",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "b3ba612a33e9472b9072de63547ba876"
+    ],
+    "job_timestamp": "20250317-123613",
+    "submittd_container_inst_ids": [
+      "adb5b3187b22471c8994179b11b1e158"
+    ],
+    "job_id": "torch-job-err-20250317-123613-ed725970",
+    "retry": "0",
+    "job_status": "COMPLETE"
+  },
+  {
+    "updated_at": "2025-03-17T12:30:44.350656",
+    "assigned_nodes": [
+      null
+    ],
+    "created_at": "2025-03-17T12:29:36.944997",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "2dd7574df11d49bcb8e4be0aa1938a11"
+    ],
+    "job_timestamp": "20250317-122935",
+    "submittd_container_inst_ids": [
+      "e26b0672b1c149e092d6694f0ba042f1"
+    ],
+    "job_id": "torch-job-20250317-122935-fdd52aaf",
+    "retry": "0",
+    "job_status": "COMPLETE"
+  },
+  {
+    "updated_at": "2025-03-17T12:39:36.041809",
+    "assigned_nodes": [
+      "A800_node004"
+    ],
+    "created_at": "2025-03-17T12:38:29.109737",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "45fe2e2b2a344557a8e30aaea9625f75"
+    ],
+    "job_timestamp": "20250317-123827",
+    "submittd_container_inst_ids": [
+      "fc0f7fbdd633481885e154c98213b0f5"
+    ],
+    "job_id": "torch-job-err-throw-20250317-123827-f2b6f58a",
+    "retry": "0",
+    "job_status": "PENDING_HEALTHCHECK"
+  },
+  {
+    "updated_at": "2025-03-17T12:55:15.267991",
+    "assigned_nodes": [
+      "A800_node004"
+    ],
+    "created_at": "2025-03-17T12:55:04.095005",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "a7b609b6b91444f2ba56923ad28ee082"
+    ],
+    "job_timestamp": "20250317-125502",
+    "submittd_container_inst_ids": [
+      "fc0f7fbdd633481885e154c98213b0f5"
+    ],
+    "job_id": "torch-job-20250317-125502-1a8fb36f",
+    "retry": "0",
+    "job_status": "COMPLETE"
+  },
+  {
+    "updated_at": "2025-03-17T13:06:01.052478",
+    "assigned_nodes": [
+      "A800_node004"
+    ],
+    "created_at": "2025-03-17T13:04:05.271634",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "dd09efde59ee44ef93b70f84a24227b0"
+    ],
+    "job_timestamp": "20250317-130403",
+    "submittd_container_inst_ids": [
+      "fc0f7fbdd633481885e154c98213b0f5"
+    ],
+    "job_id": "torch-job-health2-20250317-130403-ef1cbab7-precheck",
+    "retry": "0",
+    "job_status": "PRE_CHECKING_FAIL"
+  },
+  {
+    "updated_at": "2025-03-17T12:34:17.647027",
+    "assigned_nodes": [
+      null
+    ],
+    "created_at": "2025-03-17T12:30:07.938733",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "1b57a8ff390b475a8b297d25ffce6ac7"
+    ],
+    "job_timestamp": "20250317-123006",
+    "submittd_container_inst_ids": [
+      "fc0f7fbdd633481885e154c98213b0f5"
+    ],
+    "job_id": "torch-job-20250317-123006-e97ceccd",
+    "retry": "0",
+    "job_status": "COMPLETE"
+  },
+  {
+    "updated_at": "2025-03-17T12:34:08.982023",
+    "assigned_nodes": [
+      "A800_node002"
+    ],
+    "created_at": "2025-03-17T12:30:12.833741",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "016a0b3f1b574efca7e2fba79a605679"
+    ],
+    "job_timestamp": "20250317-123011",
+    "submittd_container_inst_ids": [
+      "adb5b3187b22471c8994179b11b1e158"
+    ],
+    "job_id": "torch-job-20250317-123011-347a47c7",
+    "retry": "0",
+    "job_status": "USER_STOPPED"
+  },
+  {
+    "updated_at": "2025-03-17T12:39:14.741773",
+    "assigned_nodes": [
+      "A800_node001"
+    ],
+    "created_at": "2025-03-17T12:35:19.879531",
+    "cluster_name": "nwcd-l4-v1",
+    "num_nodes": "1",
+    "submittd_ecs_task_ids": [
+      "2e2deb092dc44e10aa5242e613ddda4b"
+    ],
+    "job_timestamp": "20250317-123518",
+    "submittd_container_inst_ids": [
+      "a27e3327be4e41a99cb39d326f7e2ebc"
+    ],
+    "job_id": "torch-job-20250317-123518-2dd806b1",
+    "retry": "0",
+    "job_status": "PENDING_HEALTHCHECK"
+  }
+]

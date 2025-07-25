@@ -1,0 +1,533 @@
+#!/usr/bin/env python3
+"""
+Test script for ECS GPU Recovery workflow.
+
+This script creates a test job with two tasks (one that fails and one that succeeds)
+and puts the initial records in DynamoDB to test the GPU recovery workflow.
+It then monitors the tasks and validates that the system correctly updates the
+DynamoDB records based on task execution results, without directly modifying
+the records itself after initial setup.
+"""
+
+import boto3
+import json
+import time
+import uuid
+import argparse
+import logging
+from datetime import datetime
+from typing import Dict, List, Tuple, Optional, Any
+
+# Import task definition creators
+from task_definitions import (
+    create_failed_training_task_definition,
+    create_successful_training_task_definition,
+    create_mock_dcgm_task_definition
+)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Initialize AWS clients
+ecs_client = boto3.client('ecs')
+dynamodb = boto3.resource('dynamodb')
+
+class EcsGpuRecoveryTest:
+    """
+    Test class for ECS GPU Recovery workflow.
+
+    This class creates test tasks and initial DynamoDB records to simulate a job,
+    then monitors the system's handling of these tasks without directly modifying
+    DynamoDB after initial setup. It validates that the system correctly updates
+    the records based on task execution results.
+    """
+
+    def __init__(self, cluster_name: str, task_table_name: str, job_table_name: str, node_table_name: str):
+        """
+        Initialize the test class.
+
+        Args:
+            cluster_name: ECS cluster name
+            task_table_name: DynamoDB task table name
+            job_table_name: DynamoDB job table name
+            node_table_name: DynamoDB node table name
+        """
+        self.cluster_name = cluster_name
+        self.task_table = dynamodb.Table(task_table_name)
+        self.job_table = dynamodb.Table(job_table_name)
+        self.node_table = dynamodb.Table(node_table_name)
+        self.job_id = f"test-job-{uuid.uuid4().hex[:8]}"
+        self.job_timestamp = datetime.now().isoformat()
+        self.tasks = []
+        self.container_instances = []
+
+    def setup_task_definitions(self) -> Tuple[str, str, str]:
+        """
+        Set up the task definitions for the test.
+
+        Returns:
+            Tuple[str, str, str]: ARNs for failed task, successful task, and DCGM task definitions
+        """
+        logger.info("Setting up task definitions...")
+        failed_task_def_arn = create_failed_training_task_definition()
+        successful_task_def_arn = create_successful_training_task_definition()
+        dcgm_task_def_arn = create_mock_dcgm_task_definition()
+
+        return failed_task_def_arn, successful_task_def_arn, dcgm_task_def_arn
+
+    def get_container_instances(self) -> List[Dict[str, Any]]:
+        """
+        Get available container instances in the cluster.
+
+        Returns:
+            List[Dict[str, Any]]: List of container instance details
+        """
+        logger.info(f"Getting container instances for cluster {self.cluster_name}...")
+        response = ecs_client.list_container_instances(
+            cluster=self.cluster_name,
+            status='ACTIVE'
+        )
+
+        if not response.get('containerInstanceArns'):
+            logger.error(f"No container instances found in cluster {self.cluster_name}")
+            return []
+
+        container_instances = ecs_client.describe_container_instances(
+            cluster=self.cluster_name,
+            containerInstances=response['containerInstanceArns']
+        )['containerInstances']
+
+        logger.info(f"Found {len(container_instances)} container instances")
+        return container_instances
+
+    def run_task(self, task_def_arn: str, container_instance_arn: str, node_index: int) -> Optional[Dict[str, Any]]:
+        """
+        Run a task on a container instance.
+
+        Args:
+            task_def_arn: Task definition ARN
+            container_instance_arn: Container instance ARN
+            node_index: Node index in the job
+
+        Returns:
+            Optional[Dict[str, Any]]: Task details if successful, None otherwise
+        """
+        try:
+            logger.info(f"Running task {task_def_arn} on instance {container_instance_arn}")
+            response = ecs_client.start_task(
+                cluster=self.cluster_name,
+                taskDefinition=task_def_arn,
+                containerInstances=[container_instance_arn],
+                startedBy=f"ecs-gpu-recovery-test-{self.job_id}",
+                tags=[
+                    {
+                        'key': 'job_id',
+                        'value': self.job_id
+                    }
+                ]
+            )
+
+            if not response.get('tasks'):
+                logger.error(f"Failed to start task on instance {container_instance_arn}")
+                return None
+
+            task = response['tasks'][0]
+            logger.info(f"Started task {task['taskArn']}")
+            return task
+        except Exception as e:
+            logger.error(f"Error running task: {str(e)}")
+            return None
+
+    def wait_for_dynamodb_updates(self) -> bool:
+        """
+        Wait for the original program to update DynamoDB records and validate them.
+
+        Returns:
+            bool: True if records are updated correctly, False otherwise
+        """
+        max_attempts = 10
+        wait_time = 30  # seconds
+
+        logger.info(f"Waiting up to {max_attempts * wait_time} seconds for DynamoDB updates...")
+
+        for attempt in range(max_attempts):
+            logger.info(f"Checking DynamoDB updates (attempt {attempt + 1}/{max_attempts})...")
+
+            # Check if all tasks have been updated by the system
+            all_updated = True
+
+            for task in self.tasks:
+                if not task:
+                    continue
+
+                task_id = task['taskArn'].split('/')[-1]
+                task_response = self.task_table.query(
+                    KeyConditionExpression=boto3.dynamodb.conditions.Key('ecs_task_id').eq(task_id)
+                )
+
+                if not task_response.get('Items'):
+                    logger.warning(f"Task record not found for task {task_id}")
+                    all_updated = False
+                    continue
+
+                task_record = task_response['Items'][0]
+                task_status = task_record.get('task_status')
+
+                # Check if the task status has been updated from IN_PROGRESS
+                if task_status == 'IN_PROGRESS':
+                    logger.info(f"Task {task_id} status is still IN_PROGRESS, waiting for update...")
+                    all_updated = False
+                else:
+                    logger.info(f"Task {task_id} status updated to: {task_status}")
+
+                    # Validate the task status matches what we expect based on the task definition
+                    task_def_name = task_record.get('task_def_name', '')
+                    expected_status = 'FAILED' if 'failed' in task_def_name.lower() else 'COMPLETED'
+
+                    if task_status != expected_status:
+                        logger.warning(f"Task {task_id} has unexpected status: {task_status}, expected: {expected_status}")
+                        all_updated = False
+
+            # Check if job status has been updated
+            job_response = self.job_table.get_item(
+                Key={'job_id': self.job_id}
+            )
+
+            if 'Item' not in job_response:
+                logger.warning(f"Job record not found for job {self.job_id}")
+                all_updated = False
+            else:
+                job_record = job_response['Item']
+                job_status = job_record.get('job_status')
+
+                if job_status == 'IN_PROGRESS':
+                    logger.info(f"Job {self.job_id} status is still IN_PROGRESS, waiting for update...")
+                    all_updated = False
+                else:
+                    logger.info(f"Job {self.job_id} status updated to: {job_status}")
+
+            if all_updated:
+                logger.info("All DynamoDB records have been updated successfully!")
+                return True
+
+            logger.info(f"Waiting {wait_time} seconds before next check...")
+            time.sleep(wait_time)
+
+        logger.warning("Timed out waiting for DynamoDB updates")
+        return False
+
+    def verify_dynamodb_records(self) -> bool:
+        """
+        Verify DynamoDB records for the test job and tasks.
+
+        Returns:
+            bool: True if records are valid, False otherwise
+        """
+        try:
+            # Verify job record
+            job_response = self.job_table.get_item(
+                Key={'job_id': self.job_id}
+            )
+
+            if 'Item' not in job_response:
+                logger.error(f"Job record not found for job {self.job_id}")
+                return False
+
+            job_record = job_response['Item']
+            logger.info(f"Job record found: {job_record}")
+
+            # Verify task records
+            for task in self.tasks:
+                if not task:
+                    continue
+
+                task_id = task['taskArn'].split('/')[-1]
+                task_response = self.task_table.query(
+                    KeyConditionExpression=boto3.dynamodb.conditions.Key('ecs_task_id').eq(task_id)
+                )
+
+                if not task_response.get('Items'):
+                    logger.error(f"Task record not found for task {task_id}")
+                    return False
+
+                task_record = task_response['Items'][0]
+                logger.info(f"Task record found: {task_record}")
+
+                # Verify node records
+                node_name = task_record['node_name']
+                node_response = self.node_table.get_item(
+                    Key={'node_name': node_name}
+                )
+
+                if 'Item' not in node_response:
+                    logger.error(f"Node record not found for node {node_name}")
+                    return False
+
+                node_record = node_response['Item']
+                logger.info(f"Node record found: {node_record}")
+
+            return True
+        except Exception as e:
+            logger.error(f"Error verifying DynamoDB records: {str(e)}")
+            return False
+
+    def verify_task_status(self) -> Dict[str, str]:
+        """
+        Verify the status of ECS tasks.
+
+        Returns:
+            Dict[str, str]: Dictionary mapping task IDs to their status
+        """
+        task_statuses = {}
+
+        for task in self.tasks:
+            if not task:
+                continue
+
+            task_id = task['taskArn'].split('/')[-1]
+            response = ecs_client.describe_tasks(
+                cluster=self.cluster_name,
+                tasks=[task_id]
+            )
+
+            if not response.get('tasks'):
+                logger.warning(f"Task {task_id} not found")
+                task_statuses[task_id] = "NOT_FOUND"
+                continue
+
+            task_status = response['tasks'][0]['lastStatus']
+            task_statuses[task_id] = task_status
+            logger.info(f"Task {task_id} status: {task_status}")
+
+        return task_statuses
+
+    def create_dynamodb_records(self, tasks: List[Dict[str, Any]], container_instances: List[Dict[str, Any]]) -> bool:
+        """
+        Create DynamoDB records for the test job and tasks.
+
+        Args:
+            tasks: List of task details
+            container_instances: List of container instance details
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Create task records
+            task_ids = []
+            container_inst_ids = []
+            assigned_nodes = []
+
+            for i, task in enumerate(tasks):
+                if not task:
+                    continue
+
+                task_id = task['taskArn'].split('/')[-1]
+                task_ids.append(task_id)
+
+                container_instance_arn = task['containerInstanceArn']
+                container_inst_id = container_instance_arn.split('/')[-1]
+                container_inst_ids.append(container_inst_id)
+
+                # Find the corresponding container instance
+                container_instance = next(
+                    (ci for ci in container_instances if ci['containerInstanceArn'] == container_instance_arn),
+                    None
+                )
+
+                if not container_instance:
+                    logger.error(f"Container instance not found for ARN {container_instance_arn}")
+                    continue
+
+                # Get EC2 instance ID
+                ec2_instance_id = container_instance['ec2InstanceId']
+                node_name = f"node-{i}"
+                assigned_nodes.append(node_name)
+
+                # Create task record
+                task_def_arn = task['taskDefinitionArn']
+                task_def_parts = task_def_arn.split('/')
+                task_def_name = task_def_parts[1].split(':')[0]
+                task_def_revision = task_def_parts[1].split(':')[1]
+
+                logger.info(f"Creating task record for task {task_id}")
+                self.task_table.put_item(
+                    Item={
+                        'ecs_task_id': task_id,
+                        'node_name': node_name,
+                        'node_index_in_job': i,
+                        'job_id': self.job_id,
+                        'job_timestamp': self.job_timestamp,
+                        'job_num_nodes': len(tasks),
+                        'task_def_arn': task_def_arn,
+                        'task_def_name': task_def_name,
+                        'task_def_revision': task_def_revision,
+                        'cluster_name': self.cluster_name,
+                        'container_instance_arn': container_instance_arn,
+                        'container_inst_id': container_inst_id,
+                        'retry': '0',
+                        'task_status': 'IN_PROGRESS',
+                        'updated_at': datetime.now().isoformat(),
+                        'created_at': datetime.now().isoformat()
+                    }
+                )
+
+                # Create node record if it doesn't exist
+                try:
+                    self.node_table.put_item(
+                        Item={
+                            'node_name': node_name,
+                            'container_instance_id': container_inst_id,
+                            'container_instance_arn': container_instance_arn,
+                            'cluster_name': self.cluster_name,
+                            'node_status': 'IN_PROGRESS',
+                            'ip': '10.0.0.1',  # Mock IP
+                            'ibdev': 'mlx5_0',  # Mock IB device
+                            'created_at': datetime.now().isoformat(),
+                            'updated_at': datetime.now().isoformat()
+                        },
+                        ConditionExpression='attribute_not_exists(node_name)'
+                    )
+                    logger.info(f"Created node record for node {node_name}")
+                except self.node_table.meta.client.exceptions.ConditionalCheckFailedException:
+                    logger.info(f"Node record already exists for node {node_name}")
+                    # Update node status
+                    self.node_table.update_item(
+                        Key={'node_name': node_name},
+                        UpdateExpression='SET node_status = :val, updated_at = :time',
+                        ExpressionAttributeValues={
+                            ':val': 'IN_PROGRESS',
+                            ':time': datetime.now().isoformat()
+                        }
+                    )
+
+            # Create job record
+            logger.info(f"Creating job record for job {self.job_id}")
+            self.job_table.put_item(
+                Item={
+                    'job_id': self.job_id,
+                    'job_timestamp': self.job_timestamp,
+                    'cluster_name': self.cluster_name,
+                    'num_nodes': len(tasks),
+                    'assigned_nodes': assigned_nodes,
+                    'submitted_container_inst_ids': container_inst_ids,
+                    'submitted_ecs_task_ids': task_ids,
+                    'updated_at': datetime.now().isoformat(),
+                    'created_at': datetime.now().isoformat(),
+                    'retry': '0',
+                    'job_status': 'IN_PROGRESS'
+                }
+            )
+
+            return True
+        except Exception as e:
+            logger.error(f"Error creating DynamoDB records: {str(e)}")
+            return False
+
+    def run_test(self) -> bool:
+        """
+        Run the test workflow.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        # Set up task definitions
+        failed_task_def_arn, successful_task_def_arn, dcgm_task_def_arn = self.setup_task_definitions()
+
+        # Get container instances
+        self.container_instances = self.get_container_instances()
+        if len(self.container_instances) < 2:
+            logger.error(f"Need at least 2 container instances, found {len(self.container_instances)}")
+            return False
+
+        # Run tasks
+        self.tasks.append(self.run_task(failed_task_def_arn, self.container_instances[0]['containerInstanceArn'], 0))
+        self.tasks.append(self.run_task(successful_task_def_arn, self.container_instances[1]['containerInstanceArn'], 1))
+
+        # Create DynamoDB records
+        if not self.create_dynamodb_records(self.tasks, self.container_instances):
+            return False
+
+        # Verify DynamoDB records
+        if not self.verify_dynamodb_records():
+            logger.warning("DynamoDB record verification failed")
+
+        logger.info(f"Test job {self.job_id} created successfully")
+        logger.info("Monitoring task status...")
+
+        # Monitor task status for a while
+        for i in range(10):
+            time.sleep(30)
+
+            # Check task status
+            task_statuses = self.verify_task_status()
+            logger.info(f"Task statuses: {task_statuses}")
+
+            # Check if tasks have completed
+            for task_id, status in task_statuses.items():
+                if status == "STOPPED":
+                    # Get exit code
+                    response = ecs_client.describe_tasks(
+                        cluster=self.cluster_name,
+                        tasks=[task_id]
+                    )
+
+                    if response.get('tasks'):
+                        containers = response['tasks'][0].get('containers', [])
+                        for container in containers:
+                            exit_code = container.get('exitCode')
+                            if exit_code is not None:
+                                logger.info(f"Task {task_id} exited with code {exit_code}")
+
+                                # Log the exit code but don't update DynamoDB - let the original program do it
+                                logger.info(f"Task {task_id} exited with code {exit_code}. Waiting for system to update DynamoDB...")
+
+        # Wait for the original program to update DynamoDB records
+        logger.info("Waiting for the system to update DynamoDB records...")
+        if not self.wait_for_dynamodb_updates():
+            logger.warning("DynamoDB updates verification failed")
+
+        # Final verification of task status
+        final_task_statuses = self.verify_task_status()
+        logger.info(f"Final task statuses: {final_task_statuses}")
+
+        logger.info("Test completed. Check CloudWatch logs and DynamoDB tables for results.")
+        return True
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description='Test ECS GPU Recovery workflow')
+    parser.add_argument('--cluster', type=str, default='nwcd-gpu-testing',
+                        help='ECS cluster name')
+    parser.add_argument('--task-table', type=str, default='ecs_task',
+                        help='DynamoDB task table name')
+    parser.add_argument('--job-table', type=str, default='ecs_job',
+                        help='DynamoDB job table name')
+    parser.add_argument('--node-table', type=str, default='ecs_node',
+                        help='DynamoDB node table name')
+    return parser.parse_args()
+
+def main():
+    """Main function."""
+    args = parse_args()
+
+    test = EcsGpuRecoveryTest(
+        cluster_name=args.cluster,
+        task_table_name=args.task_table,
+        job_table_name=args.job_table,
+        node_table_name=args.node_table
+    )
+
+    success = test.run_test()
+    if success:
+        logger.info("Test workflow started successfully")
+        logger.info(f"Job ID: {test.job_id}")
+    else:
+        logger.error("Test workflow failed")
+
+if __name__ == "__main__":
+    main()

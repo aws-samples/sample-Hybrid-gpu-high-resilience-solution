@@ -1,0 +1,88 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "healthcheck",
+            "image": "455385591292.dkr.ecr.cn-north-1.amazonaws.com.cn/hybrid-gpu-healthcheck:latest",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 2022,
+                    "hostPort": 2022,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "entryPoint": [
+                "/bin/sh"
+            ],
+            "command": [
+                "/healthcheck/healthcheck/healthcheck_worker.sh"
+            ],
+            "environment": [],
+            "mountPoints": [
+                {
+                    "sourceVolume": "lustre",
+                    "containerPath": "/healthcheck",
+                    "readOnly": false
+                }
+            ],
+            "volumesFrom": [],
+            "linuxParameters": {
+                "devices": [
+                    {
+                        "hostPath": "/dev/infiniband",
+                        "containerPath": "/dev/infiniband",
+                        "permissions": [
+                            "read",
+                            "write"
+                        ]
+                    }
+                ]
+            },
+            "privileged": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/hybridGpuHealthcheck",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "cn-north-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": [],
+            "resourceRequirements": [
+                {
+                    "value": "8",
+                    "type": "GPU"
+                }
+            ]
+        }
+    ],
+    "family": "hybridGpuHealthCheck-worker",
+    "taskRoleArn": "arn:aws-cn:iam::455385591292:role/ecsanywhereTaskRole",
+    "executionRoleArn": "arn:aws-cn:iam::455385591292:role/ecsanywhereTaskExecutionRole",
+    "networkMode": "host",
+    "volumes": [
+        {
+            "name": "lustre",
+            "host": {
+                "sourcePath": "/fsx"
+            }
+        }
+    ],
+    "placementConstraints": [
+    ],
+    "requiresCompatibilities": [
+        "EXTERNAL",
+        "EC2"
+    ],
+    "cpu": "4096",
+    "memory": "32768",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "tags": []
+}

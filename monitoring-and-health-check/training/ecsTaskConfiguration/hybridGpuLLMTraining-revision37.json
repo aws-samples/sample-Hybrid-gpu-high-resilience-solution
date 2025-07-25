@@ -1,0 +1,191 @@
+{
+    "taskDefinitionArn": "arn:aws-cn:ecs:cn-northwest-1:455385591292:task-definition/hybridGpuLLMTraining:37",
+    "containerDefinitions": [
+        {
+            "name": "llmtraining",
+            "image": "455385591292.dkr.ecr.cn-northwest-1.amazonaws.com.cn/hybridgpu:training",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 10086,
+                    "hostPort": 10086,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "entryPoint": [
+                "/bin/sh"
+            ],
+            "command": [
+                "/hybridgpu/runtraining.sh"
+            ],
+            "environment": [],
+            "mountPoints": [
+                {
+                    "sourceVolume": "lustre",
+                    "containerPath": "/hybridgpu",
+                    "readOnly": false
+                },
+                {
+                    "sourceVolume": "model",
+                    "containerPath": "/home/node-user/test-liang",
+                    "readOnly": false
+                }
+            ],
+            "volumesFrom": [],
+            "linuxParameters": {
+                "devices": [
+                    {
+                        "hostPath": "/dev/infiniband/uverbs3",
+                        "containerPath": "/dev/infiniband/uverbs3",
+                        "permissions": [
+                            "read",
+                            "write"
+                        ]
+                    },
+                    {
+                        "hostPath": "/dev/infiniband/uverbs0",
+                        "containerPath": "/dev/infiniband/uverbs0",
+                        "permissions": [
+                            "read",
+                            "write"
+                        ]
+                    },
+                    {
+                        "hostPath": "/dev/infiniband/uverbs8",
+                        "containerPath": "/dev/infiniband/uverbs8",
+                        "permissions": [
+                            "read",
+                            "write"
+                        ]
+                    },
+                    {
+                        "hostPath": "/dev/infiniband/uverbs4",
+                        "containerPath": "/dev/infiniband/uverbs4",
+                        "permissions": [
+                            "read",
+                            "write"
+                        ]
+                    },
+                    {
+                        "hostPath": "/dev/infiniband/rdma_cm",
+                        "containerPath": "/dev/infiniband/rdma_cm",
+                        "permissions": [
+                            "read",
+                            "write"
+                        ]
+                    }
+                ],
+                "sharedMemorySize": 16384
+            },
+            "ulimits": [
+                {
+                    "name": "memlock",
+                    "softLimit": -1,
+                    "hardLimit": -1
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/hybridGpuTraining",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "cn-northwest-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": [],
+            "resourceRequirements": [
+                {
+                    "value": "8",
+                    "type": "GPU"
+                }
+            ]
+        }
+    ],
+    "family": "hybridGpuLLMTraining",
+    "taskRoleArn": "arn:aws-cn:iam::455385591292:role/ecsanywhereTaskRole",
+    "executionRoleArn": "arn:aws-cn:iam::455385591292:role/ecsanywhereTaskExecutionRole",
+    "networkMode": "host",
+    "revision": 37,
+    "volumes": [
+        {
+            "name": "lustre",
+            "host": {
+                "sourcePath": "/fsx"
+            }
+        },
+        {
+            "name": "model",
+            "host": {
+                "sourcePath": "/home/node-user/test-liang"
+            }
+        }
+    ],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role-network-host"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.17"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.22"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "ecs.capability.pid-ipc-namespace-sharing"
+        }
+    ],
+    "placementConstraints": [
+        {
+            "type": "memberOf",
+            "expression": "attribute:node==node032"
+        }
+    ],
+    "compatibilities": [
+        "EXTERNAL",
+        "EC2"
+    ],
+    "requiresCompatibilities": [
+        "EXTERNAL"
+    ],
+    "memory": "1843200",
+    "ipcMode": "host",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "registeredAt": "2025-02-21T11:16:56.308Z",
+    "registeredBy": "arn:aws-cn:iam::455385591292:user/shuji",
+    "tags": []
+}

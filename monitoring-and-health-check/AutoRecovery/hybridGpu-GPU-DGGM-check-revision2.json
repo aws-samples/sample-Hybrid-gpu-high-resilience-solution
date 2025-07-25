@@ -1,0 +1,116 @@
+{
+    "taskDefinitionArn": "arn:aws-cn:ecs:cn-northwest-1:455385591292:task-definition/hybridGpu-GPU-DGGM-check:2",
+    "containerDefinitions": [
+        {
+            "name": "healthcheck",
+            "image": "455385591292.dkr.ecr.cn-northwest-1.amazonaws.com.cn/hybridgpu:healthcheck",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 2022,
+                    "hostPort": 2022,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "entryPoint": [
+                "/bin/sh"
+            ],
+            "command": [
+                "/healthcheck/GPU-DCGM-task.sh"
+            ],
+            "environment": [],
+            "mountPoints": [
+                {
+                    "sourceVolume": "lustre",
+                    "containerPath": "/healthcheck",
+                    "readOnly": false
+                }
+            ],
+            "volumesFrom": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/hybridGpuHealthcheck",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "cn-northwest-1",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            },
+            "systemControls": [],
+            "resourceRequirements": [
+                {
+                    "value": "8",
+                    "type": "GPU"
+                }
+            ]
+        }
+    ],
+    "family": "hybridGpu-GPU-DGGM-check",
+    "taskRoleArn": "arn:aws-cn:iam::455385591292:role/ecsanywhereTaskRole",
+    "executionRoleArn": "arn:aws-cn:iam::455385591292:role/ecsanywhereTaskExecutionRole",
+    "networkMode": "host",
+    "revision": 2,
+    "volumes": [
+        {
+            "name": "lustre",
+            "host": {
+                "sourcePath": "/fsx"
+            }
+        }
+    ],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role-network-host"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.privileged-container"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.28"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.task-iam-role"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        }
+    ],
+    "compatibilities": [
+        "EXTERNAL",
+        "EC2"
+    ],
+    "requiresCompatibilities": [
+        "EXTERNAL"
+    ],
+    "cpu": "4096",
+    "memory": "32768",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "registeredAt": "2025-02-20T08:57:57.254Z",
+    "registeredBy": "arn:aws-cn:iam::455385591292:user/shuji",
+    "tags": []
+}
