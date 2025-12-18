@@ -51,3 +51,9 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
+
+## GCR Region
+Static-BGP is a cost-optimized networking service launched by Amazon Web Services in the China (Beijing) Region, operated by Sinnet, and the China (Ningxia) Region, operated by NWCD. It is designed to help our customers reduce Data Transfer Out (DTO) costs for internet-transmitted data. If you wish to apply for the S-BGP service in the AWS China Regions, please contact your account manager for further assistance.
+
+Static-BGP 是我们在由光环新网运营的亚马逊云科技中国（北京）区域和由西云数据运营的亚马逊云科技中国（宁夏）区域推出的一项成本优化型网络服务，旨在帮助我们的客户降低经过互联网传输数据出云（Data Transfer Out）的费用。 如果您想申请亚马逊云科技中国区域的 S-BGP 服务，请联系您的客户经理获取进一步帮助。
+
